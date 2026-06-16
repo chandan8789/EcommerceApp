@@ -1,13 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 
-const CommonCard = ({ item }) => {
-  const discountPrice = Math.round(item.price);
-
-  const originalPrice = Math.round(item.price + item.price * 0.64);
-
+const CommonCard = ({ item, onPress }) => {
   return (
-    <TouchableOpacity style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={onPress}>
       <View style={styles.imageContainer}>
         <Image source={{ uri: item.image }} style={styles.productImage} />
 
@@ -31,7 +27,7 @@ const CommonCard = ({ item }) => {
         <Text style={styles.price}>₹{Math.round(item.price)}</Text>
 
         <Text style={styles.tryBuy}>
-          TRY <Text style={{ fontWeight: '700' }}>BUY</Text>
+          TRY <Text style={styles.tryBuyBold}>BUY</Text>
         </Text>
       </View>
 
@@ -66,31 +62,30 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
 
-  heartContainer: {
+  heartButton: {
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 3,
   },
 
-  heart: {
-    fontSize: 18,
-    color: '#000',
-  },
-
-  content: {
-    marginTop: 8,
+  heartIcon: {
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
   },
 
   brand: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111',
+    marginTop: 8,
     textTransform: 'capitalize',
   },
 
@@ -114,12 +109,12 @@ const styles = StyleSheet.create({
     color: '#000',
   },
 
-  buyText: {
+  tryBuy: {
     color: '#3F51FF',
     fontSize: 14,
   },
 
-  buyBold: {
+  tryBuyBold: {
     fontWeight: '700',
   },
 

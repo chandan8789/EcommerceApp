@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,23 +6,36 @@ import {
   TouchableOpacity,
   Image,
   Text,
+  ScrollView,
 } from 'react-native';
-
 import Modal from 'react-native-modal';
+import { useNavigation } from '@react-navigation/native';
 
 import Header from '../../compoents/Header';
 import CommonCard from '../../compoents/CommonCard';
 import SkeletonCard from '../../compoents/SkeletonCard';
-import { useNavigation } from '@react-navigation/native';
 
 const Dashboard = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Modals
   const [sortVisible, setSortVisible] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
+
+  // Sort State
   const [selectedSort, setSelectedSort] = useState('');
+
+  // Filter States
+  const [activeFilter, setActiveFilter] = useState('Suggested');
+  const [selectedFilters, setSelectedFilters] = useState({
+    gender: [],
+    priceRange: [],
+    newArrivals: false,
+    discounts: [],
+  });
+
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -32,11 +45,8 @@ const Dashboard = () => {
   const getProducts = async () => {
     try {
       setLoading(true);
-
       const response = await fetch('https://fakestoreapi.com/products');
-
       const data = await response.json();
-
       setProducts(data);
       setFilteredProducts(data);
     } catch (error) {
@@ -46,84 +56,119 @@ const Dashboard = () => {
     }
   };
 
-  // Search
-  const handleSearch = text => {
-    if (!text.trim()) {
-      setFilteredProducts(products);
-      return;
+  // Real-time Filter + Sort
+  const applyFiltersAndSort = useMemo(() => {
+    let result = [...products];
+
+    // === FILTERS ===
+    if (selectedFilters.gender.length > 0) {
+      result = result.filter(item => {
+        if (
+          selectedFilters.gender.includes('Men') &&
+          item.category === "men's clothing"
+        )
+          return true;
+        if (
+          selectedFilters.gender.includes('Women') &&
+          item.category === "women's clothing"
+        )
+          return true;
+        return false;
+      });
     }
 
-    const filtered = products.filter(item =>
-      item.title.toLowerCase().includes(text.toLowerCase()),
-    );
+    if (selectedFilters.priceRange.length > 0) {
+      result = result.filter(item => {
+        return selectedFilters.priceRange.some(range => {
+          if (range === 'Under 700') return item.price < 700;
+          if (range === '700-1500')
+            return item.price >= 700 && item.price <= 1500;
+          if (range === 'Above 1500') return item.price > 1500;
+          return false;
+        });
+      });
+    }
 
-    setFilteredProducts(filtered);
-  };
+    if (selectedFilters.discounts.length > 0) {
+      result = result.filter(item => item.price < 50); // Mock discount
+    }
 
-  // Sort
-  const handleSort = type => {
-    let sortedProducts = [...filteredProducts];
+    if (selectedFilters.newArrivals) {
+      result = result.sort((a, b) => b.id - a.id);
+    }
 
-    switch (type) {
+    // === SORT ===
+    switch (selectedSort) {
       case 'newest':
-        sortedProducts.sort((a, b) => b.id - a.id);
+        result.sort((a, b) => b.id - a.id);
         break;
-
       case 'low':
-        sortedProducts.sort((a, b) => a.price - b.price);
+        result.sort((a, b) => a.price - b.price);
         break;
-
       case 'high':
-        sortedProducts.sort((a, b) => b.price - a.price);
+        result.sort((a, b) => b.price - a.price);
         break;
-
       case 'discount':
-        sortedProducts.sort(
-          (a, b) => (b.rating?.rate || 0) - (a.rating?.rate || 0),
-        );
+        result.sort((a, b) => (b.rating?.rate || 0) - (a.rating?.rate || 0));
         break;
-
       case 'bestseller':
-        sortedProducts.sort(
-          (a, b) => (b.rating?.count || 0) - (a.rating?.count || 0),
-        );
+        result.sort((a, b) => (b.rating?.count || 0) - (a.rating?.count || 0));
         break;
-
       default:
         break;
     }
 
-    setFilteredProducts(sortedProducts);
+    setFilteredProducts(result);
+  }, [selectedFilters, selectedSort, products]);
+
+  // Toggle Filter
+  const toggleFilter = (category, value) => {
+    setSelectedFilters(prev => {
+      const current = prev[category] || [];
+      if (current.includes(value)) {
+        return { ...prev, [category]: current.filter(item => item !== value) };
+      } else {
+        return { ...prev, [category]: [...current, value] };
+      }
+    });
+  };
+
+  const clearAllFilters = () => {
+    setSelectedFilters({
+      gender: [],
+      priceRange: [],
+      newArrivals: false,
+      discounts: [],
+    });
+    setSelectedSort('');
+  };
+
+  const applyFilterAndClose = () => {
+    setFilterVisible(false);
+  };
+
+  const handleSort = type => {
     setSelectedSort(type);
     setSortVisible(false);
   };
 
-  // Filter
-  const handleFilter = category => {
-    if (category === 'all') {
-      setFilteredProducts(products);
-    } else {
-      const filtered = products.filter(item => item.category === category);
-
-      setFilteredProducts(filtered);
-    }
-
-    setFilterVisible(false);
-  };
-
-  const categories = [
-    'all',
-    "men's clothing",
-    "women's clothing",
-    'electronics',
-    'jewelery',
+  // Filter Sidebar Items
+  const filterCategories = [
+    { id: 'Suggested', label: 'Suggested filters' },
+    { id: 'Gender', label: 'Gender' },
+    { id: 'Price', label: 'Price' },
+    { id: 'Brand', label: 'Brand' },
+    { id: 'Discounts', label: 'Discounts' },
   ];
+
+  const genderOptions = ['Men', 'Women', 'Boys', 'Girls', 'Unisex'];
+  const priceOptions = ['Under 700', '700-1500', 'Above 1500'];
+  const discountOptions = ['50% off', 'Buy 1 Get 1', 'Under ₹700'];
 
   return (
     <View style={styles.container}>
-      {/* <Header onSearch={handleSearch} /> */}
+      <Header onSearch={() => {}} navigation={navigation} />
 
-      <Header onSearch={handleSearch} navigation={navigation} />
       <Text style={styles.resultText}>
         Showing <Text style={styles.blueText}>{filteredProducts.length}</Text>{' '}
         results
@@ -133,9 +178,6 @@ const Dashboard = () => {
         <FlatList
           data={[1, 2, 3, 4, 5, 6]}
           numColumns={2}
-          keyExtractor={item => item.toString()}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.listContainer}
           renderItem={() => <SkeletonCard />}
         />
       ) : (
@@ -143,15 +185,21 @@ const Dashboard = () => {
           data={filteredProducts}
           numColumns={2}
           keyExtractor={item => item.id.toString()}
-          renderItem={({ item }) => <CommonCard item={item} />}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <CommonCard
+              item={item}
+              onPress={() =>
+                navigation.navigate('ProductDetails', { product: item })
+              }
+            />
+          )}
         />
       )}
 
-      {/* Bottom Bar */}
-
+      {/* Bottom Bar - Both Sort & Filter */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.bottomButton}
@@ -161,7 +209,6 @@ const Dashboard = () => {
             source={require('../../assets/icons/sort.png')}
             style={styles.bottomIcon}
           />
-
           <Text style={styles.bottomText}>Sort by</Text>
         </TouchableOpacity>
 
@@ -175,13 +222,11 @@ const Dashboard = () => {
             source={require('../../assets/icons/filter.png')}
             style={styles.bottomIcon}
           />
-
           <Text style={styles.bottomText}>Filters</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Sort Modal */}
-
+      {/* ==================== SORT MODAL ==================== */}
       <Modal
         isVisible={sortVisible}
         onBackdropPress={() => setSortVisible(false)}
@@ -190,131 +235,220 @@ const Dashboard = () => {
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>Sort by</Text>
 
-          <TouchableOpacity
-            style={styles.option}
-            onPress={() => handleSort('newest')}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                selectedSort === 'newest' && styles.selectedText,
-              ]}
+          {[
+            { key: 'newest', label: 'Newest arrivals' },
+            { key: 'low', label: 'Price - low to high' },
+            { key: 'high', label: 'Price - high to low' },
+            { key: 'discount', label: 'Offers and discounts' },
+            { key: 'bestseller', label: 'Best sellers' },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.option}
+              onPress={() => handleSort(item.key)}
             >
-              Newest arrivals
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.option}
-            onPress={() => handleSort('low')}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                selectedSort === 'low' && styles.selectedText,
-              ]}
-            >
-              Price - low to high
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.option}
-            onPress={() => handleSort('high')}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                selectedSort === 'high' && styles.selectedText,
-              ]}
-            >
-              Price - high to low
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.option}
-            onPress={() => handleSort('discount')}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                selectedSort === 'discount' && styles.selectedText,
-              ]}
-            >
-              Offers and discounts
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.option}
-            onPress={() => handleSort('bestseller')}
-          >
-            <Text
-              style={[
-                styles.optionText,
-                selectedSort === 'bestseller' && styles.selectedText,
-              ]}
-            >
-              Best sellers
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.optionText,
+                  selectedSort === item.key && styles.selectedText,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </Modal>
 
-      {/* Filter Modal */}
-
+      {/* ==================== FILTER MODAL ==================== */}
       <Modal
         isVisible={filterVisible}
         onBackdropPress={() => setFilterVisible(false)}
         style={styles.modal}
+        backdropOpacity={0.7}
       >
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Filters</Text>
+        <View style={styles.filterContainer}>
+          {/* Left Sidebar */}
+          <View style={styles.sidebar}>
+            <Text style={styles.filterTitle}>Filters</Text>
+            {filterCategories.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.sidebarItem,
+                  activeFilter === item.id && styles.sidebarItemActive,
+                ]}
+                onPress={() => setActiveFilter(item.id)}
+              >
+                <Text
+                  style={[
+                    styles.sidebarText,
+                    activeFilter === item.id && styles.sidebarTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-          {categories.map(item => (
-            <TouchableOpacity
-              key={item}
-              style={styles.option}
-              onPress={() => handleFilter(item)}
-            >
-              <Text style={styles.optionText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
+          {/* Right Content */}
+          <View style={styles.contentArea}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {activeFilter === 'Suggested' && (
+                <View>
+                  <Text style={styles.sectionTitle}>
+                    Choose from the mostly used filters
+                  </Text>
+                  <View style={styles.chipContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.chip,
+                        selectedFilters.newArrivals && styles.chipActive,
+                      ]}
+                      onPress={() =>
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          newArrivals: !prev.newArrivals,
+                        }))
+                      }
+                    >
+                      <Text
+                        style={
+                          selectedFilters.newArrivals
+                            ? styles.chipTextActive
+                            : styles.chipText
+                        }
+                      >
+                        New arrivals
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {activeFilter === 'Gender' && (
+                <View>
+                  <Text style={styles.sectionTitle}>Select gender</Text>
+                  <View style={styles.chipContainer}>
+                    {genderOptions.map(gender => (
+                      <TouchableOpacity
+                        key={gender}
+                        style={[
+                          styles.chip,
+                          selectedFilters.gender.includes(gender) &&
+                            styles.chipActive,
+                        ]}
+                        onPress={() => toggleFilter('gender', gender)}
+                      >
+                        <Text
+                          style={
+                            selectedFilters.gender.includes(gender)
+                              ? styles.chipTextActive
+                              : styles.chipText
+                          }
+                        >
+                          {gender}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {activeFilter === 'Price' && (
+                <View>
+                  <Text style={styles.sectionTitle}>Select price range</Text>
+                  <View style={styles.chipContainer}>
+                    {priceOptions.map(price => (
+                      <TouchableOpacity
+                        key={price}
+                        style={[
+                          styles.chip,
+                          selectedFilters.priceRange.includes(price) &&
+                            styles.chipActive,
+                        ]}
+                        onPress={() => toggleFilter('priceRange', price)}
+                      >
+                        <Text
+                          style={
+                            selectedFilters.priceRange.includes(price)
+                              ? styles.chipTextActive
+                              : styles.chipText
+                          }
+                        >
+                          {price}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {activeFilter === 'Discounts' && (
+                <View>
+                  <Text style={styles.sectionTitle}>Discounts</Text>
+                  <View style={styles.chipContainer}>
+                    {discountOptions.map(discount => (
+                      <TouchableOpacity
+                        key={discount}
+                        style={[
+                          styles.chip,
+                          selectedFilters.discounts.includes(discount) &&
+                            styles.chipActive,
+                        ]}
+                        onPress={() => toggleFilter('discounts', discount)}
+                      >
+                        <Text
+                          style={
+                            selectedFilters.discounts.includes(discount)
+                              ? styles.chipTextActive
+                              : styles.chipText
+                          }
+                        >
+                          {discount}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Bottom Action Buttons */}
+            <View style={styles.bottomButtons}>
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={clearAllFilters}
+              >
+                <Text style={styles.clearButtonText}>Clear all</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={applyFilterAndClose}
+              >
+                <Text style={styles.applyButtonText}>Apply filter</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
   );
 };
 
-export default Dashboard;
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-
+  container: { flex: 1, backgroundColor: '#fff' },
   resultText: {
     fontSize: 13,
     color: '#444',
     paddingHorizontal: 16,
     marginVertical: 10,
   },
-
-  blueText: {
-    color: '#3646FF',
-    fontWeight: '700',
-  },
-
-  row: {
-    justifyContent: 'space-between',
-  },
-
-  listContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 100,
-  },
+  blueText: { color: '#3646FF', fontWeight: '700' },
+  row: { justifyContent: 'space-between' },
+  listContainer: { paddingHorizontal: 12, paddingBottom: 100 },
 
   bottomBar: {
     position: 'absolute',
@@ -328,57 +462,98 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 8,
   },
-
   bottomButton: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  divider: { width: 1, height: 25, backgroundColor: '#ddd' },
+  bottomIcon: { width: 18, height: 18, resizeMode: 'contain', marginRight: 8 },
+  bottomText: { fontSize: 15, fontWeight: '600' },
 
-  divider: {
-    width: 1,
-    height: 25,
-    backgroundColor: '#ddd',
-  },
+  modal: { margin: 0, justifyContent: 'flex-end' },
 
-  bottomIcon: {
-    width: 18,
-    height: 18,
-    resizeMode: 'contain',
-    marginRight: 8,
-  },
-
-  bottomText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-
-  modal: {
-    justifyContent: 'flex-end',
-    margin: 0,
-  },
-
+  // Sort Modal Styles
   sheet: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
   },
-
   sheetTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#3646FF',
     marginBottom: 20,
   },
+  option: { paddingVertical: 14 },
+  optionText: { fontSize: 16, color: '#111' },
+  selectedText: { color: '#3646FF', fontWeight: '600' },
 
-  option: {
-    paddingVertical: 14,
+  // Filter Modal Styles
+  filterContainer: {
+    flexDirection: 'row',
+    height: '88%',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    overflow: 'hidden',
   },
+  sidebar: { width: '38%', backgroundColor: '#f8f9fa', paddingTop: 20 },
+  filterTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    marginBottom: 15,
+  },
+  sidebarItem: { paddingVertical: 14, paddingHorizontal: 16 },
+  sidebarItemActive: {
+    backgroundColor: '#fff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3646FF',
+  },
+  sidebarText: { fontSize: 15, color: '#555' },
+  sidebarTextActive: { color: '#3646FF', fontWeight: '600' },
 
-  optionText: {
+  contentArea: { flex: 1, padding: 20 },
+  sectionTitle: {
     fontSize: 16,
-    color: '#111',
+    fontWeight: '600',
+    marginBottom: 15,
+    color: '#333',
   },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 8,
+  },
+  chipActive: { backgroundColor: '#3646FF', borderColor: '#3646FF' },
+  chipText: { fontSize: 14, color: '#333' },
+  chipTextActive: { color: '#fff' },
+
+  bottomButtons: { flexDirection: 'row', marginTop: 20, gap: 12 },
+  clearButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#3646FF',
+    alignItems: 'center',
+  },
+  clearButtonText: { color: '#3646FF', fontWeight: '600' },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 25,
+    backgroundColor: '#3646FF',
+    alignItems: 'center',
+  },
+  applyButtonText: { color: '#fff', fontWeight: '600' },
 });
+
+export default Dashboard;
