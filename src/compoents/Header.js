@@ -9,10 +9,13 @@ import {
   TextInput,
 } from 'react-native';
 
-const Header = ({ onSearch }) => {
+const Header = ({ onSearch, navigation }) => {
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState('');
 
+  const handleCart = () => {
+    navigation.navigate('Bags');
+  };
   useEffect(() => {
     const timer = setTimeout(() => {
       onSearch(searchText);
@@ -81,7 +84,7 @@ const Header = ({ onSearch }) => {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCart}>
                 <Image
                   source={require('../assets/icons/order.png')}
                   style={styles.icon}
@@ -142,8 +145,9 @@ const styles = StyleSheet.create({
   },
 
   backIcon: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
+    resizeMode: 'contain',
   },
 
   rightSection: {
@@ -156,7 +160,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 4,
   },
 
   icon: {

@@ -13,6 +13,7 @@ import Modal from 'react-native-modal';
 import Header from '../../compoents/Header';
 import CommonCard from '../../compoents/CommonCard';
 import SkeletonCard from '../../compoents/SkeletonCard';
+import { useNavigation } from '@react-navigation/native';
 
 const Dashboard = () => {
   const [products, setProducts] = useState([]);
@@ -22,6 +23,7 @@ const Dashboard = () => {
   const [sortVisible, setSortVisible] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
   const [selectedSort, setSelectedSort] = useState('');
+  const navigation = useNavigation();
 
   useEffect(() => {
     getProducts();
@@ -119,8 +121,9 @@ const Dashboard = () => {
 
   return (
     <View style={styles.container}>
-      <Header onSearch={handleSearch} />
+      {/* <Header onSearch={handleSearch} /> */}
 
+      <Header onSearch={handleSearch} navigation={navigation} />
       <Text style={styles.resultText}>
         Showing <Text style={styles.blueText}>{filteredProducts.length}</Text>{' '}
         results
