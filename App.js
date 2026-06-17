@@ -2,13 +2,14 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Provider } from 'react-redux';
 
 import StackNavigation from './src/navigation/StackNavigation';
-import { CartProvider } from './src/context/CartContext';
+import { store } from './src/store';
 
 const App = () => {
   return (
-    <CartProvider>
+    <Provider store={store}>
       <SafeAreaProvider>
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
           <NavigationContainer>
@@ -16,7 +17,7 @@ const App = () => {
           </NavigationContainer>
         </SafeAreaView>
       </SafeAreaProvider>
-    </CartProvider>
+    </Provider>
   );
 };
 

@@ -1,226 +1,458 @@
 import React from 'react';
 import {
   StyleSheet,
-  View,
   Text,
+  View,
   FlatList,
-  TouchableOpacity,
   Image,
+  TouchableOpacity,
   SafeAreaView,
-  StatusBar,
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useCart } from '../../context/CartContext';
 
-const Bag = () => {
-  const navigation = useNavigation();
-  const {
-    cartItems,
-    updateQuantity,
-    toggleSelect,
-    deselectAll,
-    selectedItems,
-    totalAmount,
-  } = useCart();
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  updateQuantity,
+  removeFromCart,
+  toggleSelect,
+  deselectAll,
+  selectCartItems,
+  selectTotalAmount,
+} from '../../store/slices/cartSlice';
+import { selectFormattedAddress } from '../../store/slices/checkoutSlice';
+import { formatPrice } from '../../utils/price';
+
+const Bags = ({ navigation }) => {
+  const dispatch = useAppDispatch();
+  const cartItems = useAppSelector(selectCartItems);
+  const totalAmount = useAppSelector(selectTotalAmount);
+  const formattedAddress = useAppSelector(selectFormattedAddress);
+  const selectedCount = cartItems.filter(item => item.selected).length;
+
+  if (cartItems.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <Image
+            source={require('../../assets/images/empty.png')}
+            style={styles.emptyImage}
+          />
+
+          <Text style={styles.emptyTitle}>Your Bag is Empty</Text>
+
+          <TouchableOpacity
+            style={styles.shopButton}
+            onPress={() => navigation.navigate('Dashboard')}
+          >
+            <Text style={styles.shopText}>Start Shopping</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const handleProceedToPay = () => {
+    if (selectedCount === 0) {
+      Alert.alert('Select items', 'Please select at least one item to proceed.');
+      return;
+    }
+
+    navigation.navigate('FillAddress');
+  };
+
+  const renderItem = ({ item }) => {
+    const salePrice = formatPrice(item.price);
+    const oldPrice = Math.round(salePrice * 1.4);
+
+    return (
+      <View style={styles.productCard}>
+        <View style={styles.imageWrapper}>
+          <TouchableOpacity
+            style={[
+              styles.checkbox,
+              !item.selected && styles.checkboxUnchecked,
+            ]}
+            onPress={() => dispatch(toggleSelect(item.id))}
+          >
+            {item.selected ? <Text style={styles.tick}>✓</Text> : null}
+          </TouchableOpacity>
+
+          <Image source={{ uri: item.image }} style={styles.productImage} />
+        </View>
+
+        <View style={styles.productInfo}>
+          <Text numberOfLines={1} style={styles.productTitle}>
+            {item.title}
+          </Text>
+
+          <Text style={styles.productDesc}>Product description line 1</Text>
+
+          <Text style={styles.productDesc}>Product description line 2</Text>
+
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>₹{salePrice}</Text>
+
+            <Text style={styles.oldPrice}>₹{oldPrice}</Text>
+          </View>
+
+          <Text style={styles.tryBuy}>
+            TRY
+            <Text style={{ fontWeight: '700' }}> BUY</Text>
+          </Text>
+
+          <View style={styles.qtyContainer}>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => dispatch(removeFromCart(item.id))}
+            >
+              <Text style={styles.deleteIcon}>🗑</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.qtyBtn}
+              onPress={() => dispatch(updateQuantity({ id: item.id, type: 'minus' }))}
+            >
+              <Text style={styles.qtyText}>−</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.quantity}>{item.quantity}</Text>
+
+            <TouchableOpacity
+              style={styles.qtyBtn}
+              onPress={() => dispatch(updateQuantity({ id: item.id, type: 'plus' }))}
+            >
+              <Text style={styles.qtyText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bag</Text>
-        <TouchableOpacity>
-          <Text style={styles.heartIcon}>♡</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Delivery Info */}
-      <View style={styles.deliveryInfo}>
-        <View style={styles.deliveryHeader}>
-          <Text style={styles.deliveryTitle}>🚚 Delivering in just 60 min</Text>
-          <Text style={styles.dropdown}>▼</Text>
-        </View>
-        <Text style={styles.address}>
-          Full address - 29 Aparna Complex, Gurgaon...
-        </Text>
-        <Text style={styles.freeDelivery}>
-          💙 Yay! Your order is eligible for FREE delivery.
-        </Text>
-      </View>
-
-      {cartItems.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Your bag is empty</Text>
-        </View>
-      ) : (
-        <>
-          <TouchableOpacity
-            onPress={deselectAll}
-            style={styles.deselectContainer}
-          >
-            <Text style={styles.deselectText}>Deselect all items</Text>
-          </TouchableOpacity>
-
-          <FlatList
-            data={cartItems}
-            keyExtractor={item => item.id.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.itemContainer}>
-                <TouchableOpacity
-                  onPress={() => toggleSelect(item.id)}
-                  style={styles.checkbox}
-                >
-                  <Text
-                    style={item.selected ? styles.checked : styles.unchecked}
-                  >
-                    {item.selected ? '✔' : '⬜'}
-                  </Text>
-                </TouchableOpacity>
-
-                <Image
-                  source={{
-                    uri: item.image || 'https://via.placeholder.com/100',
-                  }}
-                  style={styles.productImage}
-                />
-
-                <View style={styles.itemDetails}>
-                  <Text style={styles.productName}>{item.title}</Text>
-                  <Text style={styles.desc}>Product description line 1</Text>
-                  <Text style={styles.desc}>Product description line 2</Text>
-
-                  <View style={styles.priceRow}>
-                    <Text style={styles.currentPrice}>₹{item.price}</Text>
-                  </View>
-
-                  <View style={styles.bottomRow}>
-                    <TouchableOpacity style={styles.tryBuyButton}>
-                      <Text style={styles.tryBuyText}>TRY & BUY</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.quantityContainer}>
-                      <TouchableOpacity
-                        style={styles.qtyButton}
-                        onPress={() => updateQuantity(item.id, 'minus')}
-                      >
-                        <Text style={styles.qtyText}>–</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.quantity}>{item.quantity}</Text>
-                      <TouchableOpacity
-                        style={styles.qtyButton}
-                        onPress={() => updateQuantity(item.id, 'plus')}
-                      >
-                        <Text style={styles.qtyText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
+          <Image
+            source={require('../../assets/icons/arrow.png')}
+            style={styles.headerIcon}
           />
-        </>
-      )}
+        </TouchableOpacity>
 
-      {cartItems.length > 0 && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={[
-              styles.proceedButton,
-              selectedItems.length === 0 && styles.disabledButton,
-            ]}
-            disabled={selectedItems.length === 0}
-          >
-            <Text style={styles.proceedText}>
-              Proceed to pay ₹{totalAmount}
-            </Text>
-          </TouchableOpacity>
+        <Text style={styles.headerTitle}>Bag</Text>
+
+        <TouchableOpacity onPress={() => navigation.navigate('Like')}>
+          <Image
+            source={require('../../assets/icons/heart.png')}
+            style={styles.headerIcon}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        style={styles.deliveryContainer}
+        onPress={() => navigation.navigate('FillAddress')}
+      >
+        <Text style={styles.bike}>🛵</Text>
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.deliveryTitle}>Delivering in just 60 min</Text>
+
+          <Text style={styles.address}>{formattedAddress}</Text>
         </View>
-      )}
+
+        <Text style={styles.arrow}>›</Text>
+      </TouchableOpacity>
+
+      <View style={styles.freeContainer}>
+        <Text style={styles.freeText}>
+          🎉 Yayy! Your order is eligible for FREE delivery.
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.deselectContainer}
+        onPress={() => dispatch(deselectAll())}
+      >
+        <Text style={styles.deselectText}>Deselect all items</Text>
+      </TouchableOpacity>
+
+      <FlatList
+        data={cartItems}
+        renderItem={renderItem}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={{
+          paddingBottom: 120,
+        }}
+      />
+
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity style={styles.payButton} onPress={handleProceedToPay}>
+          <Text style={styles.payText}>Proceed to pay ₹{totalAmount}</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
 
+export default Bags;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F4F4F4',
+  },
+
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  backIcon: { fontSize: 28 },
-  headerTitle: { fontSize: 18, fontWeight: '600' },
-  heartIcon: { fontSize: 26 },
-
-  deliveryInfo: { padding: 16, backgroundColor: '#f9f9f9' },
-  deliveryHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  deliveryTitle: { fontSize: 16, fontWeight: '600' },
-  address: { color: '#666', marginTop: 4 },
-  freeDelivery: { color: '#0066ff', marginTop: 8 },
-
-  deselectContainer: { padding: 16 },
-  deselectText: { color: '#0066ff', fontWeight: '500' },
-
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 18, color: '#666' },
-
-  itemContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  checkbox: { marginRight: 12, marginTop: 10 },
-  checked: { fontSize: 22, color: '#0066ff' },
-  unchecked: { fontSize: 22, color: '#ccc' },
-
-  productImage: { width: 100, height: 100, borderRadius: 8, marginRight: 12 },
-  itemDetails: { flex: 1 },
-  productName: { fontSize: 16, fontWeight: '600' },
-  desc: { fontSize: 13, color: '#666', marginVertical: 2 },
-  priceRow: { flexDirection: 'row', marginTop: 6 },
-  currentPrice: { fontSize: 18, fontWeight: '700' },
-
-  bottomRow: {
+    height: 80,
+    backgroundColor: '#F4F4F4',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    paddingHorizontal: 20,
   },
-  tryBuyButton: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  tryBuyText: { fontSize: 12, fontWeight: '600' },
 
-  quantityContainer: {
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#222',
+  },
+
+  headerIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+  },
+
+  deliveryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+  },
+
+  bike: {
+    fontSize: 28,
+    marginRight: 10,
+  },
+
+  deliveryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+
+  address: {
+    fontSize: 14,
+    color: '#777',
+    marginTop: 4,
+  },
+
+  arrow: {
+    fontSize: 20,
+    color: '#555',
+  },
+
+  freeContainer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    paddingBottom: 10,
+  },
+
+  freeText: {
+    color: '#3F51FF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  deselectContainer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    paddingBottom: 12,
+  },
+
+  deselectText: {
+    color: '#3F51FF',
+    fontSize: 15,
+  },
+
+  productCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECECEC',
+  },
+
+  imageWrapper: {
+    width: 135,
+    height: 135,
+    backgroundColor: '#F3F3F3',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  checkbox: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    backgroundColor: '#3F51FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99,
+  },
+
+  checkboxUnchecked: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#AAA',
+  },
+
+  tick: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+
+  productImage: {
+    width: 95,
+    height: 95,
+    resizeMode: 'contain',
+  },
+
+  productInfo: {
+    flex: 1,
+    marginLeft: 15,
+  },
+
+  productTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#222',
+  },
+
+  productDesc: {
+    fontSize: 13,
+    color: '#666',
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+
+  price: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: '#111',
+  },
+
+  oldPrice: {
+    marginLeft: 10,
+    fontSize: 18,
+    color: '#888',
+    textDecorationLine: 'line-through',
+  },
+
+  tryBuy: {
+    marginTop: 4,
+    color: '#666',
+    fontSize: 15,
+  },
+
+  qtyContainer: {
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
+    borderColor: '#D8D8FF',
+    borderRadius: 20,
+    alignSelf: 'flex-start',
   },
-  qtyButton: { paddingHorizontal: 12, paddingVertical: 4 },
-  qtyText: { fontSize: 18, fontWeight: '600' },
-  quantity: { paddingHorizontal: 12, fontSize: 16 },
 
-  bottomContainer: { padding: 16, borderTopWidth: 1, borderTopColor: '#eee' },
-  proceedButton: {
-    backgroundColor: '#0066ff',
-    paddingVertical: 16,
-    borderRadius: 30,
+  deleteBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  disabledButton: { backgroundColor: '#a0a0a0' },
-  proceedText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-});
 
-export default Bag;
+  deleteIcon: {
+    fontSize: 16,
+  },
+
+  qtyBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  qtyText: {
+    fontSize: 22,
+    color: '#333',
+  },
+
+  quantity: {
+    width: 30,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+  },
+
+  payButton: {
+    height: 55,
+    borderRadius: 30,
+    backgroundColor: '#3F51FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  payText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  emptyImage: {
+    width: 220,
+    height: 220,
+    resizeMode: 'contain',
+  },
+
+  emptyTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginTop: 20,
+  },
+
+  shopButton: {
+    marginTop: 25,
+    backgroundColor: '#3F51FF',
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    borderRadius: 30,
+  },
+
+  shopText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+});

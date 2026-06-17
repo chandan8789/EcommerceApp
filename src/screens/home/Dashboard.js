@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,151 +8,73 @@ import {
   Text,
   ScrollView,
 } from 'react-native';
+
 import Modal from 'react-native-modal';
 import { useNavigation } from '@react-navigation/native';
 
 import Header from '../../compoents/Header';
 import CommonCard from '../../compoents/CommonCard';
 import SkeletonCard from '../../compoents/SkeletonCard';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  setProducts,
+  setLoading,
+  setSearchQuery,
+  setSelectedSort,
+  toggleFilter,
+  toggleNewArrivals,
+  clearAllFilters,
+  selectFilteredProducts,
+} from '../../store/slices/productsSlice';
+import { toggleWishlist, selectWishlistItems } from '../../store/slices/wishlistSlice';
 
 const Dashboard = () => {
-  const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
+  const dispatch = useAppDispatch();
 
-  // Modals
+  const filteredProducts = useAppSelector(selectFilteredProducts);
+  const loading = useAppSelector(state => state.products.loading);
+  const selectedSort = useAppSelector(state => state.products.selectedSort);
+  const selectedFilters = useAppSelector(state => state.products.selectedFilters);
+  const likedProducts = useAppSelector(selectWishlistItems);
+
   const [sortVisible, setSortVisible] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
-
-  // Sort State
-  const [selectedSort, setSelectedSort] = useState('');
-
-  // Filter States
   const [activeFilter, setActiveFilter] = useState('Suggested');
-  const [selectedFilters, setSelectedFilters] = useState({
-    gender: [],
-    priceRange: [],
-    newArrivals: false,
-    discounts: [],
-  });
-
-  const navigation = useNavigation();
 
   useEffect(() => {
-    getProducts();
-  }, []);
-
-  const getProducts = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('https://fakestoreapi.com/products');
-      const data = await response.json();
-      setProducts(data);
-      setFilteredProducts(data);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Real-time Filter + Sort
-  const applyFiltersAndSort = useMemo(() => {
-    let result = [...products];
-
-    // === FILTERS ===
-    if (selectedFilters.gender.length > 0) {
-      result = result.filter(item => {
-        if (
-          selectedFilters.gender.includes('Men') &&
-          item.category === "men's clothing"
-        )
-          return true;
-        if (
-          selectedFilters.gender.includes('Women') &&
-          item.category === "women's clothing"
-        )
-          return true;
-        return false;
-      });
-    }
-
-    if (selectedFilters.priceRange.length > 0) {
-      result = result.filter(item => {
-        return selectedFilters.priceRange.some(range => {
-          if (range === 'Under 700') return item.price < 700;
-          if (range === '700-1500')
-            return item.price >= 700 && item.price <= 1500;
-          if (range === 'Above 1500') return item.price > 1500;
-          return false;
-        });
-      });
-    }
-
-    if (selectedFilters.discounts.length > 0) {
-      result = result.filter(item => item.price < 50); // Mock discount
-    }
-
-    if (selectedFilters.newArrivals) {
-      result = result.sort((a, b) => b.id - a.id);
-    }
-
-    // === SORT ===
-    switch (selectedSort) {
-      case 'newest':
-        result.sort((a, b) => b.id - a.id);
-        break;
-      case 'low':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'high':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'discount':
-        result.sort((a, b) => (b.rating?.rate || 0) - (a.rating?.rate || 0));
-        break;
-      case 'bestseller':
-        result.sort((a, b) => (b.rating?.count || 0) - (a.rating?.count || 0));
-        break;
-      default:
-        break;
-    }
-
-    setFilteredProducts(result);
-  }, [selectedFilters, selectedSort, products]);
-
-  // Toggle Filter
-  const toggleFilter = (category, value) => {
-    setSelectedFilters(prev => {
-      const current = prev[category] || [];
-      if (current.includes(value)) {
-        return { ...prev, [category]: current.filter(item => item !== value) };
-      } else {
-        return { ...prev, [category]: [...current, value] };
+    const getProducts = async () => {
+      try {
+        dispatch(setLoading(true));
+        const response = await fetch('https://fakestoreapi.com/products');
+        const data = await response.json();
+        dispatch(setProducts(data));
+      } catch (error) {
+        console.log('API Error:', error);
+        dispatch(setLoading(false));
       }
-    });
-  };
+    };
 
-  const clearAllFilters = () => {
-    setSelectedFilters({
-      gender: [],
-      priceRange: [],
-      newArrivals: false,
-      discounts: [],
-    });
-    setSelectedSort('');
-  };
+    getProducts();
+  }, [dispatch]);
 
-  const applyFilterAndClose = () => {
-    setFilterVisible(false);
+  const handleSearch = text => {
+    dispatch(setSearchQuery(text));
   };
 
   const handleSort = type => {
-    setSelectedSort(type);
+    dispatch(setSelectedSort(type));
     setSortVisible(false);
   };
 
-  // Filter Sidebar Items
+  const handleLike = product => {
+    dispatch(toggleWishlist(product));
+  };
+
+  const handleClearAllFilters = () => {
+    dispatch(clearAllFilters());
+  };
+
   const filterCategories = [
     { id: 'Suggested', label: 'Suggested filters' },
     { id: 'Gender', label: 'Gender' },
@@ -161,13 +83,17 @@ const Dashboard = () => {
     { id: 'Discounts', label: 'Discounts' },
   ];
 
-  const genderOptions = ['Men', 'Women', 'Boys', 'Girls', 'Unisex'];
+  const genderOptions = ['Men', 'Women', 'Unisex'];
   const priceOptions = ['Under 700', '700-1500', 'Above 1500'];
   const discountOptions = ['50% off', 'Buy 1 Get 1', 'Under ₹700'];
 
   return (
     <View style={styles.container}>
-      <Header onSearch={() => {}} navigation={navigation} />
+      <Header
+        navigation={navigation}
+        onSearch={handleSearch}
+        onWishlistPress={() => navigation.navigate('Like')}
+      />
 
       <Text style={styles.resultText}>
         Showing <Text style={styles.blueText}>{filteredProducts.length}</Text>{' '}
@@ -178,6 +104,9 @@ const Dashboard = () => {
         <FlatList
           data={[1, 2, 3, 4, 5, 6]}
           numColumns={2}
+          keyExtractor={item => item.toString()}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.listContainer}
           renderItem={() => <SkeletonCard />}
         />
       ) : (
@@ -188,9 +117,17 @@ const Dashboard = () => {
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          extraData={selectedFilters}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No products match your filters</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <CommonCard
               item={item}
+              isLiked={likedProducts.some(product => product.id === item.id)}
+              onLike={() => handleLike(item)}
               onPress={() =>
                 navigation.navigate('ProductDetails', { product: item })
               }
@@ -199,7 +136,6 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Bottom Bar - Both Sort & Filter */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.bottomButton}
@@ -226,31 +162,29 @@ const Dashboard = () => {
         </TouchableOpacity>
       </View>
 
-      {/* ==================== SORT MODAL ==================== */}
       <Modal
         isVisible={sortVisible}
         onBackdropPress={() => setSortVisible(false)}
         style={styles.modal}
       >
         <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Sort by</Text>
-
+          <Text style={styles.sheetTitle}>Sort By</Text>
           {[
-            { key: 'newest', label: 'Newest arrivals' },
-            { key: 'low', label: 'Price - low to high' },
-            { key: 'high', label: 'Price - high to low' },
-            { key: 'discount', label: 'Offers and discounts' },
-            { key: 'bestseller', label: 'Best sellers' },
+            { label: 'Newest arrivals', value: 'newest' },
+            { label: 'Price - low to high', value: 'low' },
+            { label: 'Price - high to low', value: 'high' },
+            { label: 'Offers and discounts', value: 'discount' },
+            { label: 'Best sellers', value: 'bestseller' },
           ].map(item => (
             <TouchableOpacity
-              key={item.key}
+              key={item.value}
               style={styles.option}
-              onPress={() => handleSort(item.key)}
+              onPress={() => handleSort(item.value)}
             >
               <Text
                 style={[
                   styles.optionText,
-                  selectedSort === item.key && styles.selectedText,
+                  selectedSort === item.value && styles.selectedText,
                 ]}
               >
                 {item.label}
@@ -260,7 +194,6 @@ const Dashboard = () => {
         </View>
       </Modal>
 
-      {/* ==================== FILTER MODAL ==================== */}
       <Modal
         isVisible={filterVisible}
         onBackdropPress={() => setFilterVisible(false)}
@@ -268,7 +201,6 @@ const Dashboard = () => {
         backdropOpacity={0.7}
       >
         <View style={styles.filterContainer}>
-          {/* Left Sidebar */}
           <View style={styles.sidebar}>
             <Text style={styles.filterTitle}>Filters</Text>
             {filterCategories.map(item => (
@@ -292,7 +224,6 @@ const Dashboard = () => {
             ))}
           </View>
 
-          {/* Right Content */}
           <View style={styles.contentArea}>
             <ScrollView showsVerticalScrollIndicator={false}>
               {activeFilter === 'Suggested' && (
@@ -306,12 +237,7 @@ const Dashboard = () => {
                         styles.chip,
                         selectedFilters.newArrivals && styles.chipActive,
                       ]}
-                      onPress={() =>
-                        setSelectedFilters(prev => ({
-                          ...prev,
-                          newArrivals: !prev.newArrivals,
-                        }))
-                      }
+                      onPress={() => dispatch(toggleNewArrivals())}
                     >
                       <Text
                         style={
@@ -339,7 +265,9 @@ const Dashboard = () => {
                           selectedFilters.gender.includes(gender) &&
                             styles.chipActive,
                         ]}
-                        onPress={() => toggleFilter('gender', gender)}
+                        onPress={() =>
+                          dispatch(toggleFilter({ category: 'gender', value: gender }))
+                        }
                       >
                         <Text
                           style={
@@ -358,7 +286,7 @@ const Dashboard = () => {
 
               {activeFilter === 'Price' && (
                 <View>
-                  <Text style={styles.sectionTitle}>Select price range</Text>
+                  <Text style={styles.sectionTitle}>Select price range (₹)</Text>
                   <View style={styles.chipContainer}>
                     {priceOptions.map(price => (
                       <TouchableOpacity
@@ -368,7 +296,11 @@ const Dashboard = () => {
                           selectedFilters.priceRange.includes(price) &&
                             styles.chipActive,
                         ]}
-                        onPress={() => toggleFilter('priceRange', price)}
+                        onPress={() =>
+                          dispatch(
+                            toggleFilter({ category: 'priceRange', value: price }),
+                          )
+                        }
                       >
                         <Text
                           style={
@@ -397,7 +329,11 @@ const Dashboard = () => {
                           selectedFilters.discounts.includes(discount) &&
                             styles.chipActive,
                         ]}
-                        onPress={() => toggleFilter('discounts', discount)}
+                        onPress={() =>
+                          dispatch(
+                            toggleFilter({ category: 'discounts', value: discount }),
+                          )
+                        }
                       >
                         <Text
                           style={
@@ -413,20 +349,28 @@ const Dashboard = () => {
                   </View>
                 </View>
               )}
+
+              {activeFilter === 'Brand' && (
+                <View>
+                  <Text style={styles.sectionTitle}>Brands (Coming Soon)</Text>
+                  <Text style={{ color: '#888', marginTop: 10 }}>
+                    Brand filtering will be available soon.
+                  </Text>
+                </View>
+              )}
             </ScrollView>
 
-            {/* Bottom Action Buttons */}
             <View style={styles.bottomButtons}>
               <TouchableOpacity
                 style={styles.clearButton}
-                onPress={clearAllFilters}
+                onPress={handleClearAllFilters}
               >
                 <Text style={styles.clearButtonText}>Clear all</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.applyButton}
-                onPress={applyFilterAndClose}
+                onPress={() => setFilterVisible(false)}
               >
                 <Text style={styles.applyButtonText}>Apply filter</Text>
               </TouchableOpacity>
@@ -438,10 +382,12 @@ const Dashboard = () => {
   );
 };
 
+export default Dashboard;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#FFF' },
   resultText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#444',
     paddingHorizontal: 16,
     marginVertical: 10,
@@ -449,6 +395,8 @@ const styles = StyleSheet.create({
   blueText: { color: '#3646FF', fontWeight: '700' },
   row: { justifyContent: 'space-between' },
   listContainer: { paddingHorizontal: 12, paddingBottom: 100 },
+  emptyContainer: { alignItems: 'center', marginTop: 60 },
+  emptyText: { color: '#777', fontSize: 15 },
 
   bottomBar: {
     position: 'absolute',
@@ -456,7 +404,7 @@ const styles = StyleSheet.create({
     left: 15,
     right: 15,
     height: 55,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF',
     borderRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
@@ -468,15 +416,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  divider: { width: 1, height: 25, backgroundColor: '#ddd' },
+  divider: { width: 1, height: 25, backgroundColor: '#DDD' },
   bottomIcon: { width: 18, height: 18, resizeMode: 'contain', marginRight: 8 },
-  bottomText: { fontSize: 15, fontWeight: '600' },
+  bottomText: { fontSize: 15, fontWeight: '600', color: '#111' },
 
-  modal: { margin: 0, justifyContent: 'flex-end' },
-
-  // Sort Modal Styles
+  modal: { justifyContent: 'flex-end', margin: 0 },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
@@ -485,13 +431,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#3646FF',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   option: { paddingVertical: 14 },
   optionText: { fontSize: 16, color: '#111' },
-  selectedText: { color: '#3646FF', fontWeight: '600' },
+  selectedText: { color: '#3646FF', fontWeight: '700' },
 
-  // Filter Modal Styles
   filterContainer: {
     flexDirection: 'row',
     height: '88%',
@@ -555,5 +500,3 @@ const styles = StyleSheet.create({
   },
   applyButtonText: { color: '#fff', fontWeight: '600' },
 });
-
-export default Dashboard;

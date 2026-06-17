@@ -1,16 +1,37 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 
-const CommonCard = ({ item, onPress }) => {
+import { formatPrice } from '../utils/price';
+
+const CommonCard = ({ item, onPress, onLike, isLiked }) => {
+  const price = formatPrice(item.price);
+  const oldPrice = Math.round(price * 1.4);
+
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={onPress}>
       <View style={styles.imageContainer}>
         <Image source={{ uri: item.image }} style={styles.productImage} />
 
-        <TouchableOpacity style={styles.heartButton}>
+        <TouchableOpacity
+          style={styles.heartButton}
+          activeOpacity={0.8}
+          onPress={e => {
+            e.stopPropagation();
+            onLike && onLike();
+          }}
+        >
           <Image
-            source={require('../assets/icons/heart.png')}
-            style={styles.heartIcon}
+            source={
+              isLiked
+                ? require('../assets/icons/heart.png')
+                : require('../assets/icons/heart.png')
+            }
+            style={[
+              styles.heartIcon,
+              isLiked && {
+                tintColor: '#FF3B5C',
+              },
+            ]}
           />
         </TouchableOpacity>
       </View>
@@ -24,7 +45,7 @@ const CommonCard = ({ item, onPress }) => {
       </Text>
 
       <View style={styles.priceRow}>
-        <Text style={styles.price}>₹{Math.round(item.price)}</Text>
+        <Text style={styles.price}>₹{price}</Text>
 
         <Text style={styles.tryBuy}>
           TRY <Text style={styles.tryBuyBold}>BUY</Text>
@@ -32,7 +53,7 @@ const CommonCard = ({ item, onPress }) => {
       </View>
 
       <View style={styles.discountRow}>
-        <Text style={styles.oldPrice}>₹{Math.round(item.price * 1.5)}</Text>
+        <Text style={styles.oldPrice}>₹{oldPrice}</Text>
 
         <Text style={styles.discount}>64% OFF</Text>
       </View>
@@ -66,52 +87,52 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#fff',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
+    elevation: 4,
   },
 
   heartIcon: {
-    width: 18,
-    height: 18,
+    width: 20,
+    height: 20,
     resizeMode: 'contain',
   },
 
   brand: {
-    fontSize: 16,
+    marginTop: 10,
+    fontSize: 15,
     fontWeight: '700',
     color: '#111',
-    marginTop: 8,
     textTransform: 'capitalize',
   },
 
   productName: {
+    marginTop: 4,
     fontSize: 13,
     color: '#666',
-    marginTop: 2,
     minHeight: 36,
   },
 
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginTop: 6,
+    alignItems: 'center',
   },
 
   price: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: '#111',
   },
 
   tryBuy: {
-    color: '#3F51FF',
-    fontSize: 14,
+    color: '#3646FF',
+    fontSize: 13,
   },
 
   tryBuyBold: {
@@ -121,7 +142,7 @@ const styles = StyleSheet.create({
   discountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 5,
   },
 
   oldPrice: {
@@ -132,8 +153,8 @@ const styles = StyleSheet.create({
 
   discount: {
     marginLeft: 8,
-    color: '#3F51FF',
-    fontWeight: '700',
+    color: '#3646FF',
     fontSize: 12,
+    fontWeight: '700',
   },
 });
